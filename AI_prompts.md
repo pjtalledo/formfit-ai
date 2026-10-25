@@ -461,3 +461,37 @@ The user reported that videos in `Final Project/videos/` were not visible in the
 **User acknowledgment**: closed as **PASS — expected behavior, no production defect**. WOD Scanner remains image-only; Video Technique Analysis remains Future Work. No further video investigation or additional paid model calls authorized from this point.
 
 ## GitHub Publication & Final Fresh-Clone Audit (2026-10-25)
+
+**Prompt 20: Close Investigation, Proceed with GitHub Publication**
+
+The user acknowledged the file-picker investigation as PASS (expected behavior, no defect), confirmed the WOD Scanner stays image-only and video analysis stays future work, asked for the additional API call to be recorded accurately without duplication (done above), authorized no further video investigation or paid calls, and asked to proceed with the previously-approved GitHub publication and an independent fresh-clone audit against the real repository — explicitly not submitting to Canvas, stopping after final GitHub verification with the repo URL, commit SHA, test results, and submission readiness.
+
+**Repository setup**: confirmed GitHub CLI authentication (`gh auth status` → logged in as `pjtalledo`). Asked the user to confirm repo name/visibility (a real-world, consequential, externally-visible action not otherwise specified) — chose **`formfit-ai`, public**.
+
+**Pre-push secret verification**:
+- `git init` in `Final Project/` (required `git config --global --add safe.directory` due to a Windows ownership mismatch on this OneDrive path — a benign, standard fix, not a security concern).
+- `git add -A` then reviewed `git status --porcelain`, grepping for `.env`, `.venv`, `videos/`, `formfit.db`, log/cache files — **none staged**. Confirmed via `git ls-files` that `.env` is not tracked.
+- Committed 64 files (37,583 insertions) as the initial commit.
+
+**Published**: `gh repo create formfit-ai --public --source=. --remote=origin --push` — succeeded. **Repository: https://github.com/pjtalledo/formfit-ai**. **Commit SHA: `af7bdd5a9fa7e1e20dcc8613ffbf444e60058e7e`**.
+
+**Post-push verification against the live repository itself** (not just the local copy): `gh api repos/pjtalledo/formfit-ai/git/trees/master?recursive=true` — listed every file actually on GitHub and grepped for secrets/videos/db — **none found**. The published repo is confirmed clean on GitHub's own servers, not assumed clean from the local working copy.
+
+**Real independent fresh-clone audit, executed against the actual pushed repository** (not a simulation this time — a real repo now exists):
+- `git clone https://github.com/pjtalledo/formfit-ai.git` into `C:\ghclone_test\formfit-ai` — a genuine clone, 2 seconds.
+- Placed the real `.env` only in the clone's parent (`C:\ghclone_test\.env`), confirmed absent from the clone itself via `find`.
+- Ran the real README setup from a cold start: venv (14s) + deps (29s) = **43s total**, well under 10 minutes.
+- Started the server from the clone and verified: `GET /api/health` → `model_configured: true` (parent-only `.env` correctly loaded), `POST /api/profiles` → real HTTP round-trip succeeded.
+- Installed Chromium into the clone's own venv and ran the **full non-live test suite directly from the fresh clone**: **51/51 passed** — the strongest reproducibility evidence in this project, since this is the actual deliverable repository being tested, not the long-lived dev environment.
+- Confirmed via `diff -b -B` (ignoring only line-ending normalization) that `report.html` and `slides.html` in the clone are content-identical to the verified local versions.
+- **Immediately deleted the copied `.env`** after use, confirmed absent via `find`. Attempted full cleanup of `C:\ghclone_test\` but this was blocked by the same built-in destructive-command safety check encountered in the earlier pre-publication rehearsal — left for manual deletion; no secrets remain in it.
+- Confirmed the main dev server (`http://localhost:8000`) was unaffected throughout.
+
+**Updated `docs/FINAL_SUBMISSION_AUDIT.md`** with a new "GitHub Publication — Executed" section documenting all of the above with the real repo URL, commit SHA, and the completed (not merely planned) Audit C results.
+
+### Mandatory Report
+- **Repository URL**: https://github.com/pjtalledo/formfit-ai
+- **Final commit SHA**: `af7bdd5a9fa7e1e20dcc8613ffbf444e60058e7e`
+- **Test results**: 51/51 non-live tests passed, run directly from the real fresh clone.
+- **Submission readiness**: GitHub publication **complete** and independently verified reproducible; **Canvas submission not performed**, per explicit instruction.
+- No further video investigation or paid model calls occurred in this phase.
