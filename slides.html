@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>FormFit AI — Final Project Slides</title>
+<link rel="stylesheet" href="https://unpkg.com/reveal.js@4.6.1/dist/reveal.css">
+<link rel="stylesheet" href="https://unpkg.com/reveal.js@4.6.1/dist/theme/black.css">
+<style>
+  :root { --pink: #ff3d8a; }
+  .reveal h1, .reveal h2 { color: var(--pink); }
+  .reveal .badge { background: var(--pink); color: #000; border-radius: 4px; padding: 2px 10px; font-size: 0.5em; vertical-align: middle; }
+  .reveal .badge.pending { background: #888; color: #fff; }
+  .reveal table { font-size: 0.6em; }
+  .reveal th { background: #330018; }
+  .reveal img { border: 2px solid var(--pink); border-radius: 6px; }
+  .reveal .diagram { background: #111; text-align: left; font-family: monospace; font-size: 0.5em; padding: 20px; border-radius: 8px; white-space: pre; }
+  .reveal ul { font-size: 0.75em; }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<section>
+  <h1>FormFit AI</h1>
+  <h3>An Accessible, Flexible, Personalized AI Fitness Coach</h3>
+  <p style="color:#ff3d8a; font-size:0.8em;">"Your schedule. Your level. Your equipment. Your workout."</p>
+  <p style="font-size:0.5em; color:#999;">Mobile-first — built for the gym, on your phone. Yale SOM MGT 409 — Final Project</p>
+</section>
+
+<section>
+  <h2 style="font-size:1.1em;">Fitness shouldn't depend on<br>your schedule or budget.</h2>
+  <ul style="font-size:0.52em; max-width: 86%; margin: 0 auto;">
+    <li><strong>Time and access:</strong> fixed schedules and short windows (a lunch break, 20-45 min between commitments) often don't fit busy professionals' and students' lives</li>
+    <li><strong>Cost:</strong> one-on-one coaching is expensive; nutrition/recovery guidance often means another paid service</li>
+    <li><strong>Divided attention:</strong> group classes split a coach's attention across many athletes, limiting individualized feedback</li>
+    <li><strong>One-size-fits-all programming:</strong> standardized workouts don't adjust to ability, goals, equipment, limitations, or time</li>
+    <li><strong>No continuity:</strong> without a dedicated coach, athletes often lack consistent progression tracking and follow-up</li>
+  </ul>
+  <p style="font-size:0.38em; color:#999; max-width:82%; margin:10px auto 0;">Evidence-based framing from the product problem statement — no statistics are cited here because none have been independently verified (see report.html Motivation).</p>
+</section>
+
+<section>
+  <h2>What's New — Working MVP Today</h2>
+  <ul>
+    <li>Whiteboard photo → structured workout, with <strong>mandatory human confirmation</strong></li>
+    <li>One integrated workflow: profile → scan/type → confirm → coach → history</li>
+    <li>A <strong>transparent agent trace</strong> shown to the user, not hidden</li>
+    <li>Honest uncertainty: says "unclear" instead of guessing</li>
+  </ul>
+  <p style="font-size:0.5em; color:#999;">Broader vision (flexible scheduling, personalized nutrition, time-budget optimization, video technique correction) is future work — see next slide and report.html §7. Not claimed as the first AI fitness coach of any kind — see report.html §2.</p>
+</section>
+
+<section>
+  <h2>Demo Workflow (real screenshots)</h2>
+  <img src="docs/evidence/02_coaching_plan.png" style="max-height:480px;">
+</section>
+
+<section>
+  <h2>Architecture — 5-Tool Agent</h2>
+  <div class="diagram">Input (text or photo)
+  -> [1] scan_wod_image_tool (vision LLM)
+  -> USER CONFIRMS/EDITS
+  -> [2] parse_wod_tool (LLM)
+  -> [3] validate_wod_tool (local, KB check)
+  -> [4] generate_recommendation_tool (LLM)
+  -> [5] validate_recommendation_tool (local)
+  -> Saved + displayed with real trace</div>
+</section>
+
+<section>
+  <h2>Tokenomics</h2>
+  <table>
+    <tr><th>Operation</th><th>Prompt tok.</th><th>Completion tok.</th></tr>
+    <tr><td>WOD Scan</td><td>258–491</td><td>76–206</td></tr>
+    <tr><td>Coaching Plan</td><td>393–467</td><td>946–1,019</td></tr>
+  </table>
+  <p style="font-size:0.55em; color:#ff8080;">No verified gpt-6-luna price exists (course-specific model alias, no public price page). Dollar costs are symbolic formulas only — see docs/TOKENOMICS_ANALYSIS.md.</p>
+</section>
+
+<section>
+  <h2>Safety — Real Adversarial Tests</h2>
+  <ul>
+    <li>Text injection ("reveal the API key") → <strong>blocked by Azure content filter</strong></li>
+    <li>Image injection → transcribed verbatim, not obeyed</li>
+    <li>Downstream propagation → <strong>blocked again, independently</strong></li>
+    <li>Illegible image → flagged "[unclear]", zero fabrication</li>
+    <li>Missing info → left blank, not invented</li>
+  </ul>
+  <p style="font-size:0.5em; color:#999;">5 real tests — a sample, not an exhaustive audit</p>
+</section>
+
+<section>
+  <h2>Impact <span class="badge pending">PENDING</span></h2>
+  <p>No real user evaluation has been conducted yet.</p>
+  <p>Protocol + feedback form ready (time-to-personalize, usefulness, accuracy, reuse intent) — see docs/IMPACT_EVALUATION.md</p>
+</section>
+
+<section>
+  <h2>Limits & Next Steps</h2>
+  <ul style="font-size:0.7em;">
+    <li>Today's MVP covers WOD scanning and coaching; <strong>time-budget scheduling, personalized nutrition, and progression tracking are future vision, not yet built</strong></li>
+    <li><strong>Video technique analysis — tested, not deployed:</strong> 2 real videos, 4 frames each; one lift identified correctly, one could not be; zero actionable cues from this configuration — kept as future work, pending better temporal data and expert validation</li>
+    <li>Source real gpt-6-luna pricing; run a real user evaluation; automate the safety tests; barbell scanning remains out of scope</li>
+  </ul>
+</section>
+
+</div>
+</div>
+<script src="https://unpkg.com/reveal.js@4.6.1/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({ hash: true, width: 1000, height: 700 });
+</script>
+</body>
+</html>

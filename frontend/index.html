@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FormFit AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --pink: #ff3d8a;
+    --pink-dark: #c2255c;
+    --black: #0b0b0d;
+    --panel: #17171b;
+    --text: #f5f5f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--black);
+    color: var(--text);
+  }
+  header {
+    padding: 24px 32px;
+    border-bottom: 2px solid var(--pink);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  header h1 { color: var(--pink); margin: 0; font-size: 1.6rem; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid #2a2a30;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .panel h2 { color: var(--pink); margin-top: 0; font-size: 1.1rem; }
+  label { display: block; margin: 10px 0 4px; font-size: 0.85rem; color: #ccc; }
+  input, select, textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    background: #0e0e11;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 1rem; /* 16px avoids iOS Safari auto-zoom on focus */
+    box-sizing: border-box;
+  }
+  select {
+    /* WebKit/Safari otherwise renders <select> with native light/system
+       styling, ignoring the dark theme background — found via a real
+       WebKit (Safari-engine) screenshot test, see
+       docs/TECHNICAL_AUDIT.md "Mobile-First Verification". */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  input[type="file"] {
+    min-height: 44px;
+    padding: 10px;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  button {
+    background: var(--pink);
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    min-height: 44px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    margin-top: 14px;
+  }
+  button:hover { background: var(--pink-dark); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .pill {
+    display: inline-block;
+    background: #2a0f1a;
+    color: var(--pink);
+    border: 1px solid var(--pink);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    margin-right: 6px;
+  }
+  .error { color: #ff6b6b; white-space: pre-wrap; }
+  ul { padding-left: 20px; }
+  .trace-step { font-size: 0.8rem; border-left: 2px solid var(--pink); padding-left: 10px; margin-bottom: 6px; }
+  .trace-step.fail { border-color: #ff6b6b; color: #ff6b6b; }
+</style>
+</head>
+<body>
+<header>
+  <div style="width:40px;height:40px;border-radius:50%;background:var(--pink);"></div>
+  <h1>FormFit AI</h1>
+</header>
+<main id="root">
+  <p id="boot-status" style="color:#999;padding:20px;">Loading FormFit AI...</p>
+</main>
+
+<!--
+  React/ReactDOM/Babel are vendored locally under frontend/vendor/ instead of
+  loaded from a CDN. A prior version used unpkg.com directly; in at least one
+  real browser session the page rendered the static header but never mounted
+  the app, with no visible error (see docs/TECHNICAL_AUDIT.md "Frontend Blank
+  Page Fix"). Vendoring removes any dependency on CDN reachability, corporate
+  firewalls, or ad-blockers at runtime, and keeps the fresh-clone promise
+  (works offline once cloned, since the vendor files ship in the repo).
+-->
+<script src="vendor/react.development.js"></script>
+<script src="vendor/react-dom.development.js"></script>
+<script src="vendor/babel.min.js"></script>
+
+<script>
+  // Fails loudly instead of silently if a vendored script didn't load —
+  // the original bug produced a blank page with the header still visible
+  // and nothing in the browser UI telling the user why.
+  window.addEventListener("error", function (e) {
+    var boot = document.getElementById("boot-status");
+    if (boot) {
+      boot.style.color = "#ff6b6b";
+      boot.textContent = "FormFit AI failed to load: " + (e.message || "unknown error") +
+        ". Open the browser console (F12) for details.";
+    }
+  });
+  setTimeout(function () {
+    if (typeof React === "undefined" || typeof ReactDOM === "undefined" || typeof Babel === "undefined") {
+      var boot = document.getElementById("boot-status");
+      if (boot) {
+        boot.style.color = "#ff6b6b";
+        boot.textContent = "FormFit AI failed to load one or more required scripts (React/ReactDOM/Babel). " +
+          "Check that frontend/vendor/*.js exist and are served correctly, and check the browser console (F12).";
+      }
+    }
+  }, 3000);
+</script>
+
+<!--
+  This application source is NOT type="text/babel" (Babel standalone's
+  automatic script-tag scanner). That automatic path was tried first and
+  failed: this version of @babel/standalone's bundled preset-react defaults
+  to the "automatic" JSX runtime regardless of the data-preset-react-options
+  attribute, compiling JSX into `import { jsx as _jsx } from
+  "react/jsx-runtime"` — a real ES module import statement. Because the
+  transformed code is injected as a plain (non-module) <script>, the browser
+  threw "Uncaught SyntaxError: Cannot use import statement outside a module"
+  and React never mounted, leaving only the static header visible (the
+  blank-page bug reported and reproduced with Playwright — see
+  docs/TECHNICAL_AUDIT.md "Frontend Blank Page Fix"). Instead, the source is
+  stored as inert text and transformed manually below with an explicit
+  { runtime: "classic" } option, which reliably avoids the import statement.
+-->
+<script type="text/plain" id="app-source">
+const { useState } = React;
+const API = "";
+
+function Panel({ title, children }) {
+  return <div className="panel"><h2>{title}</h2>{children}</div>;
+}
+
+function App() {
+  const [profile, setProfile] = useState({
+    name: "", experience_level: "beginner", goals: "", equipment: "", limitations: "", weight_unit: "lb",
+  });
+  const [profileId, setProfileId] = useState(null);
+  const [rawText, setRawText] = useState("");
+  const [wodSource, setWodSource] = useState("typed");
+  const [scanning, setScanning] = useState(false);
+  const [scanInfo, setScanInfo] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function createProfile() {
+    setError(null);
+    try {
+      const resp = await fetch(`${API}/api/profiles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...profile,
+          equipment: profile.equipment.split(",").map(s => s.trim()).filter(Boolean),
+        }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      setProfileId(data.id);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function submitWod() {
+    setError(null);
+    setResult(null);
+    setLoading(true);
+    try {
+      const resp = await fetch(`${API}/api/wod`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ athlete_id: profileId, raw_text: rawText, source: wodSource }),
+      });
+      if (!resp.ok) throw new Error(await resp.text());
+      setResult(await resp.json());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function scanImage(file) {
+    setError(null);
+    setScanInfo(null);
+    setScanning(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const resp = await fetch(`${API}/api/wod/scan`, { method: "POST", body: formData });
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      // Scanned text pre-fills the editable textarea — never auto-submitted.
+      // The athlete must review/edit and explicitly click Generate.
+      setRawText(data.extracted_text);
+      setWodSource("image");
+      setScanInfo(data);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  return (
+    <div>
+      <Panel title="1. Athlete Profile">
+        <label>Name</label>
+        <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} />
+        <label>Experience</label>
+        <select value={profile.experience_level} onChange={e => setProfile({ ...profile, experience_level: e.target.value })}>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advanced">Advanced</option>
+        </select>
+        <label>Goals</label>
+        <input value={profile.goals} onChange={e => setProfile({ ...profile, goals: e.target.value })} />
+        <label>Equipment (comma-separated)</label>
+        <input value={profile.equipment} onChange={e => setProfile({ ...profile, equipment: e.target.value })} />
+        <label>Limitations</label>
+        <input value={profile.limitations} onChange={e => setProfile({ ...profile, limitations: e.target.value })} />
+        <label>Weight Unit</label>
+        <select value={profile.weight_unit} onChange={e => setProfile({ ...profile, weight_unit: e.target.value })}>
+          <option value="lb">lb</option>
+          <option value="kg">kg</option>
+        </select>
+        <button onClick={createProfile}>Save Profile</button>
+        {profileId && <p className="pill">Profile #{profileId} saved</p>}
+      </Panel>
+
+      <Panel title="2. WOD Input">
+        <p style={{fontSize: "0.8rem", color: "#999"}}>
+          Type a WOD directly, or scan a whiteboard photo below — the scanned text always
+          appears in the editable box for you to review and correct before generating a plan.
+          It is never used automatically.
+        </p>
+        <label>Scan a whiteboard photo (optional)</label>
+        <div style={{display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "10px"}}>
+          <label style={{flex: "1 1 160px"}}>
+            <span style={{fontSize: "0.75rem", color: "#999", display: "block", marginBottom: "4px"}}>Take Photo</span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              disabled={scanning}
+              onChange={e => { if (e.target.files[0]) scanImage(e.target.files[0]); e.target.value = ""; }}
+            />
+          </label>
+          <label style={{flex: "1 1 160px"}}>
+            <span style={{fontSize: "0.75rem", color: "#999", display: "block", marginBottom: "4px"}}>Choose from Gallery</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={scanning}
+              onChange={e => { if (e.target.files[0]) scanImage(e.target.files[0]); e.target.value = ""; }}
+            />
+          </label>
+        </div>
+        {scanning && <p className="pill">Scanning image...</p>}
+        {scanInfo && (
+          <div style={{marginTop: "10px"}}>
+            {scanInfo.low_confidence && (
+              <p className="error">
+                ⚠ Some parts of this image may be unclear — check the text below carefully.
+              </p>
+            )}
+            {scanInfo.confidence_notes.map((n, i) => (
+              <p key={i} style={{fontSize: "0.75rem", color: "#999"}}>{n}</p>
+            ))}
+          </div>
+        )}
+        <label>Workout text {wodSource === "image" && <span className="pill">from scanned image — review before submitting</span>}</label>
+        <textarea
+          value={rawText}
+          onChange={e => { setRawText(e.target.value); setWodSource("typed"); }}
+          placeholder="e.g. For Time: 21-15-9 Thrusters, Pull-ups"
+        />
+        <button onClick={submitWod} disabled={!profileId || loading}>
+          {loading ? "Processing..." : "Generate Coaching Plan"}
+        </button>
+      </Panel>
+
+      {error && <Panel title="Error"><div className="error">{error}</div></Panel>}
+
+      {result && (
+        <Panel title="3. Personalized Coaching Plan">
+          <h3>Warm-up</h3>
+          <ul>{result.recommendation.warm_up.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          <h3>Scaling Options</h3>
+          <ul>{result.recommendation.scaling_options.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          <h3>Main Workout Guidance</h3>
+          <p>{result.recommendation.main_workout_guidance}</p>
+          <h3>Complementary Exercises</h3>
+          <ul>{result.recommendation.complementary_exercises.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          <h3>Safety Notes</h3>
+          <ul>{result.recommendation.safety_notes.map((w, i) => <li key={i}>{w}</li>)}</ul>
+
+          <h3>Usage (observability)</h3>
+          <p className="pill">model: {result.usage.model}</p>
+          <p className="pill">prompt tokens: {result.usage.prompt_tokens}</p>
+          <p className="pill">completion tokens: {result.usage.completion_tokens}</p>
+          <p className="pill">cached tokens: {result.usage.cached_tokens}</p>
+          <p className="pill">est. cost: ${result.usage.estimated_cost_usd.toFixed(6)}</p>
+
+          <h3>Agent Trace</h3>
+          {result.agent_trace.map((step, i) => (
+            <div key={i} className={"trace-step" + (step.ok ? "" : " fail")}>
+              <strong>{step.tool}</strong> ({step.duration_ms}ms) — {step.ok ? "OK" : "FAILED"}<br/>
+              in: {step.input_summary}<br/>
+              out: {step.output_summary}
+            </div>
+          ))}
+        </Panel>
+      )}
+    </div>
+  );
+}
+
+try {
+  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+} catch (err) {
+  document.getElementById("root").innerHTML =
+    '<p style="color:#ff6b6b;padding:20px;">FormFit AI failed to render: ' +
+    String(err && err.message ? err.message : err) +
+    '. Check the browser console (F12) for details.</p>';
+  throw err;
+}
+</script>
+
+<script>
+  // Manually transform and run the app source with the classic JSX runtime
+  // (see comment above app-source for why this replaces type="text/babel").
+  (function () {
+    var source = document.getElementById("app-source").textContent;
+    try {
+      var output = Babel.transform(source, {
+        presets: [["react", { runtime: "classic" }]],
+      }).code;
+      (0, eval)(output);
+    } catch (err) {
+      var boot = document.getElementById("boot-status");
+      if (boot) {
+        boot.style.color = "#ff6b6b";
+        boot.textContent = "FormFit AI failed to compile: " + (err && err.message ? err.message : err) +
+          ". Check the browser console (F12) for details.";
+      }
+      throw err;
+    }
+  })();
+</script>
+</body>
+</html>

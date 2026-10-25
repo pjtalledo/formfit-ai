@@ -1,0 +1,45 @@
+# Secrets — never commit real credentials
+.env
+*.env
+!.env.example
+
+# Python virtual environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Test/cache artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# SQLite runtime databases
+*.db
+*.sqlite
+*.sqlite3
+backend/formfit.db
+
+# Temporary uploads / scanned images (future WOD/barbell scanner features)
+uploads/
+tmp/
+*.tmp
+
+# Raw personal videos (video feasibility experiment, Phase 4) — real identifiable
+# footage of real people must never be published. Only the redacted written
+# findings (experiments/video_feasibility/RESULTS.md and the .py scripts) are
+# intended for the repository.
+videos/
+experiments/video_feasibility/frames/
+*.MOV
+*.mov
+*.mp4
+
+# Logs
+*.log
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

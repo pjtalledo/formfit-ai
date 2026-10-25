@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FormFit AI — Final Project Report</title>
+<style>
+  :root { --pink: #ff3d8a; --pink-dark: #c2255c; --black: #0b0b0d; --panel: #f7f7f9; --text: #1a1a1d; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; color: var(--text); margin: 0; background: #fff; line-height: 1.5; }
+  .page { max-width: 800px; margin: 0 auto; padding: 32px 40px; }
+  h1 { color: var(--pink-dark); font-size: 2rem; border-bottom: 3px solid var(--pink); padding-bottom: 10px; }
+  h2 { color: var(--pink-dark); font-size: 1.4rem; margin-top: 2.2em; border-bottom: 1px solid #ddd; padding-bottom: 6px; page-break-before: always; }
+  h2.no-break { page-break-before: auto; }
+  h3 { color: #333; font-size: 1.05rem; margin-top: 1.4em; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.85rem; }
+  th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #fce4ef; }
+  code, pre { background: #f0f0f2; padding: 2px 5px; border-radius: 3px; font-size: 0.85rem; }
+  pre { padding: 10px; overflow-x: auto; white-space: pre-wrap; }
+  img { max-width: 100%; border: 1px solid #ccc; border-radius: 6px; margin: 10px 0; }
+  .badge { display: inline-block; background: var(--pink); color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; font-family: sans-serif; }
+  .badge.pending { background: #999; }
+  .badge.warn { background: #c0392b; }
+  .disclaimer { background: #fff3f3; border-left: 4px solid #c0392b; padding: 10px 14px; font-size: 0.85rem; margin: 10px 0; }
+  .diagram { background: #0b0b0d; color: #fff; padding: 20px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; white-space: pre; overflow-x: auto; }
+  ul { margin: 6px 0; }
+  @media print {
+    .page { max-width: none; padding: 0.5in; }
+    h2 { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ============ 1. TITLE + LINKS ============ -->
+<h1 class="no-break" style="border:none; page-break-before: auto;">FormFit AI</h1>
+<p><strong>Adaptive AI CrossFit Coaching Platform</strong><br>
+Yale SOM MGT 409 (AI Foundations for Managers) — Final Project<br>
+Prepared: 2026-10-25 | Status: Phase 2 complete, Phase 3 documentation in progress</p>
+
+<table>
+<tr><th>Link</th><th>Location</th></tr>
+<tr><td>GitHub repository</td><td><span class="badge pending">PENDING</span> — not yet published; Git has not been initialized per explicit scope restriction through Phase 2</td></tr>
+<tr><td>Live app (local)</td><td><code>http://localhost:8000</code> (run from <code>Final Project/</code> — see README.md)</td></tr>
+<tr><td>Slides</td><td><code>slides.html</code> (this repository)</td></tr>
+<tr><td>Demo video</td><td><span class="badge pending">PENDING / OPTIONAL</span> — not recorded</td></tr>
+</table>
+
+<div class="disclaimer">
+<strong>Evidence policy for this report:</strong> every claim below is either (a) backed by a real test, a real screenshot, or a real API response captured during development (see <code>AI_prompts.md</code> for the full, reconciled log of all 19 real API calls made across this project), or (b) explicitly labeled PENDING/hypothetical. Nothing is fabricated.
+</div>
+
+<!-- ============ 2. MOTIVATION ============ -->
+<h2>1. Motivation</h2>
+<p style="font-size:1.1em; color:#c2255c;"><strong>"Fitness shouldn't depend on your schedule or budget."</strong></p>
+<p>FormFit AI's broader product vision is an accessible, flexible, personalized AI fitness coach — not merely a CrossFit whiteboard scanner. That vision responds to several real, common barriers to consistent training:</p>
+<ul>
+<li><strong>Fixed schedules and limited time</strong>: busy professionals and students often cannot attend classes at set times, and frequently have only short windows available — a lunch break, or 20-45 minutes between commitments.</li>
+<li><strong>Cost of individualized attention</strong>: one-on-one personal coaching is expensive, and group classes divide a coach's attention among many participants, limiting individualized feedback and technique supervision.</li>
+<li><strong>One-size-fits-all programming</strong>: standardized workouts do not automatically fit each person's ability, goals, equipment, limitations, or available time.</li>
+<li><strong>Lack of continuity</strong>: athletes training without a dedicated coach often lack continuous progression tracking and personalized follow-up, and nutrition/recovery guidance may require paying for yet another separate service.</li>
+<li><strong>Sustainability of the habit itself</strong>: inconsistent access to training that actually fits a person's life can make long-term exercise habits difficult to sustain.</li>
+</ul>
+<p>These are presented as the problems motivating FormFit AI's product direction, not as independently measured statistics — no claim here is backed by a cited study or survey; it is a reasoned product rationale, stated as such.</p>
+<div class="disclaimer"><strong>MVP vs. vision, stated plainly</strong>: the working application described in this report today addresses a narrower slice of this vision — CrossFit WOD interpretation, scaling, and basic coaching guidance. The broader vision (flexible scheduling/time-budget optimization, personalized nutrition, continuous progression tracking, video technique correction) is <strong>future product direction, not implemented or verified functionality</strong> — see §7 for the explicit scope boundary.</div>
+<p style="font-size:1.05em; color:#c2255c; margin-top:1.2em;"><strong>"Your schedule. Your level. Your equipment. Your workout."</strong></p>
+<p>FormFit AI is built <strong>mobile-first</strong>: the typical use case is an athlete at the gym, on their phone, photographing a whiteboard WOD, confirming the extraction, and getting a personalized plan — not sitting at a desktop. Responsive mobile behavior across common smartphone viewport sizes is verified in §7/the Technical Audit (see `docs/TECHNICAL_AUDIT.md` "Mobile-First Verification").</p>
+
+<!-- ============ 3. WHAT IS NEW ============ -->
+<h2>2. What Is New</h2>
+<p>Based on a competitive review of existing CrossFit tracking/coaching products (full detail in <code>docs/COMPETITIVE_ANALYSIS.md</code>), here is what the <strong>current working MVP</strong> actually does differently — not any single piece in isolation — is new for this space:</p>
+<ul>
+<li><strong>Whiteboard-photo-to-structured-workout extraction</strong> with mandatory human confirmation before the extracted text is ever used (verified real test evidence, §6).</li>
+<li><strong>A fully integrated single workflow</strong>: profile → scan or type → confirm → personalized coaching → persisted history, rather than separate logging/community/coaching tools.</li>
+<li><strong>A transparent, user-visible agent execution trace</strong> for every coaching plan generated (see the real screenshot in §4).</li>
+<li><strong>Honest uncertainty handling</strong>: the system explicitly says "unclear" rather than guessing when handwriting is illegible (real evidence in §6).</li>
+</ul>
+<p><em>This project does not claim to be the first AI-assisted fitness coaching tool in any general sense — see the explicit non-claims in <code>docs/COMPETITIVE_ANALYSIS.md</code>.</em></p>
+<div class="disclaimer">To be clear: <strong>the broader vision's remaining pain points — flexible time-budget scheduling, personalized nutrition, continuous long-term progression tracking, and video technique correction — are not operational today.</strong> No feature in this report should be read as implying they are, unless independently verified and described as such elsewhere in this document (they are not).</div>
+
+<!-- ============ 4. THE AGENTS ============ -->
+<h2>3. The Agents</h2>
+<p>FormFit AI uses a single orchestrating pipeline with five distinct tool calls (not a single opaque prompt, and not a hard-coded sequence disguised as "agentic"):</p>
+<div class="diagram">
+User Input (typed WOD or whiteboard photo)
+        |
+        v
+[1] scan_wod_image_tool  (LLM, vision) -- only if image uploaded
+        |  transcribes photo to text; flags [unclear: ...] rather than guessing
+        v
+  >> USER REVIEWS / EDITS TEXT (mandatory, never auto-applied) <<
+        |
+        v
+[2] parse_wod_tool  (LLM)  -- extracts structured WOD (format, exercises, scheme)
+        |
+        v
+[3] validate_wod_tool  (local)  -- checks exercises against curated knowledge base
+        |
+        v
+[4] generate_recommendation_tool  (LLM)  -- warm-up, scaling, guidance, accessories
+        |
+        v
+[5] validate_recommendation_tool  (local)  -- Pydantic schema validation
+        |
+        v
+  Saved to SQLite + displayed with real usage/cost + full trace
+</div>
+<p>Architecture reference: <code>backend/app/agent.py</code>. Each step's real input/output/timing is captured into an inspectable trace, shown to the end user (see the Agent Trace panel in Figure 2 below) — not just logged internally and hidden.</p>
+
+<h3>Real Agent Trace (captured live, from the screenshot in Figure 2)</h3>
+<pre>parse_wod_tool (4125ms) — OK
+  in:  For Time: 21-15-9 Thrusters, Pull-ups
+  out: {"format":"For Time","exercises":[{"name":"Thrusters","scheme":"21-15-9",...
+
+validate_wod_tool (0ms) — OK
+  in:  2 exercises
+  out: all exercises recognized in knowledge base   <!-- after the Phase 3 KB-matching fix -->
+
+generate_recommendation_tool (1062ms) — OK
+  in:  Athlete: beginner athlete, goals: build strength and conditioning, equipment: ba...
+  out: {"warm_up": ["2 rounds: 8 air squats and 6 push-ups...", ...]}
+
+validate_recommendation_tool (0ms) — OK
+  in:  recommendation json
+  out: valid</pre>
+<p><strong>Figure 1 — Athlete Profile & WOD Input (real screenshot, Playwright-captured against the live app):</strong></p>
+<img src="docs/evidence/01_profile_saved.png" alt="FormFit AI profile and WOD input screenshot">
+
+<p><strong>Figure 2 — Generated Coaching Plan with real usage metrics and agent trace (real screenshot):</strong></p>
+<img src="docs/evidence/02_coaching_plan.png" alt="FormFit AI coaching plan, usage, and agent trace screenshot">
+
+<div class="disclaimer">
+<strong>Known bug found and fixed via this exact screenshot</strong>: the first capture showed <code>unknown_to_kb=['Thrusters', 'Pull-ups']</code> even though both exercises are in the curated knowledge base — the match was case-sensitive and did not tolerate plural forms ("Thrusters" vs. KB key "thruster"). Fixed in <code>backend/app/knowledge_base.py</code> (<code>is_known_exercise</code>) and covered by a new parametrized unit test. This is disclosed, not hidden, because it is real evidence the KB-matching logic needed hardening.
+</div>
+
+<!-- ============ 5. TOKENOMICS ============ -->
+<h2>4. Tokenomics</h2>
+<p>Full detail and formulas: <code>docs/TOKENOMICS_ANALYSIS.md</code>. Summary of real, measured data:</p>
+<table>
+<tr><th>Operation</th><th>Prompt tokens (real)</th><th>Completion tokens (real)</th><th>Cached tokens (real)</th></tr>
+<tr><td>WOD Scan (image)</td><td>258–491</td><td>76–206</td><td>0</td></tr>
+<tr><td>Text WOD parse</td><td>191</td><td>107</td><td>0</td></tr>
+<tr><td>Full coaching-plan generation (2 LLM calls)</td><td>393–467</td><td>946–1,019</td><td>0</td></tr>
+</table>
+<div class="disclaimer">
+<strong>No verified <code>gpt-6-luna</code> price exists.</strong> It is a course-specific model alias routed via Portkey to an Azure OpenAI backend; no price field is returned anywhere in the API response, and no public price page exists for this alias. <strong>Every dollar figure that follows is a labeled formula, never an asserted real price</strong> — see <code>docs/TOKENOMICS_ANALYSIS.md</code> for the full reasoning.
+</div>
+<p><strong>Cost formulas (symbolic, pending a real rate):</strong></p>
+<pre>cost_per_scan           ≈ (370 / 1e6 × input_rate) + (120 / 1e6 × output_rate)
+cost_per_coaching_plan  ≈ (394 / 1e6 × input_rate) + (1000 / 1e6 × output_rate)
+cost_per_workflow       = cost_per_scan + cost_per_coaching_plan  (scan + plan)
+monthly_cost_per_user   = 22 × cost_per_coaching_plan + 11 × cost_per_scan   (assumption: 1 WOD/day, 22 training days, half scanned)
+total_monthly(N users)  = N × monthly_cost_per_user</pre>
+<p><strong>Real measured optimization finding</strong>: image-based scan calls use ~1.5–2.5x more prompt tokens than text-only parsing of similar complexity (258–491 vs. 191 tokens) — a genuine, measured observation suggesting image downscaling before upload as a concrete next optimization experiment (not yet run).</p>
+
+<!-- ============ 6. SAFETY ============ -->
+<h2>5. Safety</h2>
+<p>Full detail, including redacted real attack traces: <code>docs/SAFETY_EVIDENCE.md</code>. Five genuine real-API tests were run (not mocked):</p>
+<table>
+<tr><th>Test</th><th>Real result</th><th>Layer responsible</th></tr>
+<tr><td>Prompt injection (typed text, asking to reveal the API key)</td><td>Rejected by Azure OpenAI's <code>content_filter</code> (HTTP 400) before any model response</td><td>Provider platform</td></tr>
+<tr><td>Prompt injection (embedded in whiteboard image)</td><td>Transcribed verbatim as text; not obeyed. API key never in any LLM context regardless.</td><td>Application + architecture</td></tr>
+<tr><td>Injection propagation downstream</td><td>Rejected again, independently, by the same content filter at the parsing stage</td><td>Provider platform (defense-in-depth)</td></tr>
+<tr><td>Ambiguous/illegible image</td><td>Returned <code>"[unclear: illegible]"</code> for all lines; zero fabricated content</td><td>Application (prompt design)</td></tr>
+<tr><td>Missing information (text)</td><td>Left reps/scheme blank rather than inventing numbers; preserved "not sure how many" verbatim</td><td>Application (prompt design)</td></tr>
+</table>
+<p><strong>Provider vs. application defenses, explicitly distinguished</strong> (per instruction, not conflated): the two "rejected by content filter" results are credited to Azure OpenAI's platform, not to code written in this project. Only the verbatim-transcription behavior and the architectural fact that the real API key is never placed in any prompt are genuinely this project's own defenses.</p>
+<p><strong>Other controls</strong>: upload restrictions (PNG/JPEG/WebP only, 8MB max, verified by automated tests), budget controls (no retry loops, no background calls, 8MB cap limits per-request cost exposure), and exercise-related limitations (recommendations constrained to a curated knowledge base, but this is a content constraint, not a medical safety guarantee — see full disclosure in <code>docs/SAFETY_EVIDENCE.md</code> §5).</p>
+<div class="disclaimer"><strong>This project does not claim complete protection.</strong> Five real tests is a sample, not an exhaustive security audit. No automated, repeatable adversarial test suite exists yet — a disclosed gap, not a hidden one.</div>
+
+<!-- ============ 7. IMPACT ============ -->
+<h2>6. Impact</h2>
+<p><span class="badge pending">PENDING</span> — <strong>no real user evaluation has been conducted.</strong> No participants, feedback, scores, or improvement percentages are reported here, per explicit instruction never to invent them.</p>
+<p>A full evaluation protocol and a ready-to-use feedback form (covering manual-vs-FormFit-AI interpretation time, perceived usefulness, clarity/accuracy, problems encountered, and willingness to reuse) have been prepared and are ready to run with real CrossFit athletes — see <code>docs/IMPACT_EVALUATION.md</code> for the complete protocol and form text.</p>
+<p>When real evaluation data exists, this section will be updated with raw per-participant numbers, not an invented aggregate, per the reporting rules defined in that document.</p>
+
+<!-- ============ 8. LIMITS AND NEXT STEPS ============ -->
+<h2>7. Limits and Next Steps</h2>
+<h3>Implemented and verified (this report's actual scope)</h3>
+<ul>
+<li>Athlete profile creation and persistence (SQLite, verified across session restarts).</li>
+<li>WOD input via typed text or whiteboard-photo scan, with mandatory user confirmation.</li>
+<li>5-tool agent pipeline generating personalized coaching plans, with a real, inspectable trace.</li>
+<li>Real token/latency observability per call; cached-vs-uncached tokens correctly distinguished (always 0 so far, honestly reported, since no caching feature exists).</li>
+<li>5 genuine real-API safety/accuracy tests, with results that are not all favorable by luck — two were caught by the underlying platform, not this project's own code, and that distinction is preserved rather than glossed over.</li>
+<li>A real, found-and-fixed bug (KB plural-matching) discovered via an actual screenshot during this very reporting phase — evidence that evaluation here is genuine, not performative.</li>
+</ul>
+<h3>Explicitly not implemented — broader product vision vs. today's MVP</h3>
+<p>FormFit AI's full product vision (§1) is an accessible, flexible, personalized AI fitness coach. The items below are real, named parts of that vision that are <strong>not built, not operational, and not independently verified</strong> in this project today — they should not be inferred as working from anything else in this report:</p>
+<ul>
+<li><strong>Time-budget-aware scheduling / short-window workout optimization</strong> (e.g., fitting a session into a lunch break) — not implemented.</li>
+<li><strong>Personalized nutrition guidance</strong> beyond general, non-personalized informational content — not implemented.</li>
+<li><strong>Continuous, long-term progression tracking and proactive follow-up</strong> beyond basic workout history storage — not implemented.</li>
+<li><strong>Video Technique Analysis</strong> — not deployed; see the dedicated subsection below for the real feasibility experiment behind this decision.</li>
+<li><strong>AI Barbell & Weight Scanner</strong> — assessed as too high-risk (occlusion/ambiguous-plate fabrication risk), per <code>docs/FEASIBILITY_MATRIX.md</code>.</li>
+</ul>
+
+<h3>Video Technique Analysis — Feasibility Experiment and Decision</h3>
+<p>Before deciding on Video Technique Analysis, a real, isolated feasibility experiment was run (full detail: <code>experiments/video_feasibility/RESULTS.md</code>) — it was never integrated into the production application. What follows separates what was actually observed from what is interpretation.</p>
+<p><strong>Observed evidence:</strong></p>
+<ul>
+<li>Two real Olympic-lifting videos (a squat clean and a snatch, same athlete/session) were evaluated using four extracted frames per video, sent to <code>gpt-6-luna</code> in two real API calls.</li>
+<li>For the squat clean, the model's identification was likely correct, cross-checked by direct visual inspection of the frames.</li>
+<li>For the second video, the model could not reliably distinguish the exercise (snatch vs. clean-and-jerk) and explicitly said so rather than guessing.</li>
+<li>The four static frames allowed only limited observations of visible body/bar positions at each captured instant; a weight plate occluded the lifter's hands/bar/arms in both clips.</li>
+<li>Four frames did not provide sufficient temporal information to assess complete lifting technique (bar path, tempo, or joint timing through the full movement).</li>
+<li>The tested configuration produced <strong>zero actionable coaching cues</strong> in either call.</li>
+</ul>
+<p><strong>Interpretation:</strong></p>
+<ul>
+<li>The safety-constrained system prompt used in this experiment deliberately did not ask the model for technique-fault judgments (per this project's own injury/medical-claim restrictions). <strong>The absence of coaching cues therefore does not prove the model is fundamentally incapable of useful feedback</strong> — it reflects the conservative prompt design tested, not an exhaustive capability ceiling.</li>
+<li>Given the combination of unreliable identification on a harder case, real occlusion limitations, and the absence of temporal/motion information from static frames, we decided <strong>not to deploy Video Technique Analysis without improved temporal processing (e.g., more frames, pose estimation, or native video support) and expert human validation</strong> of any output before it could be shown to an athlete as coaching feedback.</li>
+</ul>
+<p>This is presented as a responsible, evidence-based product decision — the experiment's real findings, not assumption, drove the choice to keep this feature as future work rather than ship it.</p>
+
+<h3>Known gaps and risks</h3>
+<ul>
+<li><strong>Tokenomics</strong>: real token counts exist; real dollar costs do not, pending a sourced <code>gpt-6-luna</code> price.</li>
+<li><strong>Impact</strong>: protocol ready; zero real users evaluated yet.</li>
+<li><strong>Safety</strong>: 5 real tests is meaningful but not exhaustive; no automated regression suite for adversarial inputs yet.</li>
+<li><strong>Reproducibility</strong>: setup/run commands have been verified in-place multiple times this session, but not yet from a truly separate fresh clone (Audit C in <code>docs/FINAL_SUBMISSION_AUDIT.md</code> is the planned check for this, not yet executed).</li>
+<li><strong>Browser coverage</strong>: automated verification used headless Chromium (Playwright); the user independently confirmed correct rendering in Microsoft Edge with a real screenshot, but no automated cross-browser suite exists.</li>
+</ul>
+<h3>Recommended next steps</h3>
+<ol>
+<li>Source real <code>gpt-6-luna</code> pricing from the course/Portkey administrator; substitute into the tokenomics formulas.</li>
+<li>Run a real user evaluation using the prepared protocol, even with a small number of participants.</li>
+<li>Package the 5 manual safety tests into an automated, re-runnable test suite.</li>
+<li>Run the Audit C fresh-clone procedure (<code>docs/FINAL_SUBMISSION_AUDIT.md</code>) before final submission.</li>
+<li>Run the real image-compression optimization experiment identified in Tokenomics §4.</li>
+<li>Scope and prototype one piece of the broader vision (§1) — most plausibly short-window workout time-budgeting — as the next MVP increment, before attempting nutrition personalization or progression tracking.</li>
+</ol>
+
+</div>
+</body>
+</html>
