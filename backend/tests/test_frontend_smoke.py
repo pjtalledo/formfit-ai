@@ -89,6 +89,54 @@ def test_frontend_actually_renders_not_just_200(live_server):
 
 
 @requires_playwright
+def test_vendor_scripts_load_from_real_local_files_without_false_positive(live_server):
+    """
+    Regression test for a real production bug (2026-10-26): the previous
+    vendor-script watchdog fired a one-shot check at exactly 3 seconds and
+    declared failure if React/ReactDOM/Babel weren't yet defined — a false
+    positive on any connection slower than fast broadband, since the combined
+    vendor payload is ~3.5MB. This test uses the REAL local vendor/*.js files
+    served by the REAL live server (no mocked React/ReactDOM/Babel, no CDN
+    fetch) and waits past the old 3-second window to confirm no false
+    failure message appears once the app has actually mounted.
+    """
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(live_server + "/")
+        page.wait_for_selector(".panel", timeout=20000)
+        page.wait_for_timeout(3500)  # past the old (buggy) 3-second one-shot check
+
+        boot_status = page.locator("#boot-status")
+        # #boot-status is removed once React mounts into #root, replacing its contents.
+        assert boot_status.count() == 0, "boot-status placeholder/error should be gone once the app has mounted"
+        assert page.locator("text=failed to load").count() == 0, "No false-positive load-failure message should appear"
+        browser.close()
+
+
+@requires_playwright
+def test_vendor_script_failure_reports_exact_failing_file(live_server):
+    """
+    Regression test for the fix's diagnostic improvement: when a vendor
+    script genuinely fails to load (simulated here by aborting the real
+    network request to babel.min.js — the actual file, not a mock), the
+    error message must name the exact failing file, not a generic
+    "one or more scripts" message.
+    """
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.route("**/vendor/babel.min.js", lambda route: route.abort())
+        page.goto(live_server + "/")
+        page.wait_for_timeout(16000)  # past the new 15-second grace window
+
+        boot_text = page.locator("#boot-status").inner_text()
+        assert "babel.min.js" in boot_text, f"Error message should name the exact failing file, got: {boot_text}"
+        assert "Babel" in boot_text
+        browser.close()
+
+
+@requires_playwright
 def test_static_responses_are_not_heuristically_cacheable(live_server):
     """
     Regression test for the Edge-caching discrepancy: StaticFiles alone sends

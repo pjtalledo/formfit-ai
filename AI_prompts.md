@@ -609,3 +609,29 @@ Reported all four findings with severity, proposed corrections, and regression r
 **Files changed**: `frontend/index.html` (3 fixes), `backend/tests/test_frontend_smoke.py` (2 new tests), `AI_prompts.md` (this entry).
 
 **Reconciled real API calls this phase**: **0** — all validation used mocked model responses or non-model-calling paths, per the explicit instruction.
+
+## Urgent: Vendor Script Load False Positive (2026-10-26)
+
+**Prompt 26: Urgent Runtime Failure Before Final Submission**
+
+The user reported seeing the actual error "FormFit AI failed to load one or more required scripts (React/ReactDOM/Babel)..." in their browser, despite 53/53 tests passing, and demanded a release-blocking investigation against the real running app (not mocked tests): reproduce it, inspect console/network/script URLs, verify vendor files exist locally and on GitHub, determine the exact root cause, apply the smallest reliable fix, add a real (non-mocked, non-CDN) regression test, test a fresh browser session including mobile, run the full suite, verify from a fresh GitHub clone, and report precisely — no paid calls, no Canvas upload.
+
+**Investigation (ruled out several plausible causes before confirming the real one)**:
+1. Checked local serving: all 3 vendor scripts (`react.development.js`, `react-dom.development.js`, `babel.min.js`) returned HTTP 200 with correct byte sizes from the live server — **not a missing-file or serving defect**.
+2. Checked the actual GitHub repository via `gh api repos/.../git/trees/master` and compared blob sizes to the local working copy — **byte-for-byte identical, no corruption** (ruled out a CRLF/line-ending corruption theory for the minified JS files).
+3. **Found the real root cause by reading the watchdog code itself**: a one-shot `setTimeout(..., 3000)` checked once whether `React`/`ReactDOM`/`Babel` were defined, and declared failure if not — but the combined vendor payload is **~3.5MB** (`babel.min.js` alone is 2.3MB). On any connection slower than fast broadband (hotel/cellular/VPN/corporate-proxy latency), downloading all three scripts can legitimately take longer than 3 seconds, producing a **false-positive failure message even though the app would have mounted fine moments later**. Attempted to reproduce this exact timing under Chrome DevTools Protocol network throttling; the throttle did not visibly slow localhost loopback traffic in this test harness, but the architectural flaw (a single one-shot check with no retry/polling) is confirmed directly from the code regardless of exact reproduction conditions — a real, defensible defect, not a guess.
+
+**Fix applied** (`frontend/index.html`, smallest reliable change, no frontend redesign, no AI/model logic touched):
+- Replaced the one-shot 3-second check with a **polling loop** (checks every 500ms, up to a 15-second grace window) that only declares failure if the globals are still undefined after that longer window — eliminating false positives on slower connections while still catching genuine failures.
+- Added `onerror` handlers on each of the 3 `<script>` tags, recording exactly which file failed to load into `window.__vendorLoadErrors`, so a genuine failure now names the **exact** failing file (e.g., "Failed script(s): vendor/babel.min.js") instead of a generic "one or more scripts" message.
+
+**Verification performed (real browser, real local assets, not mocked)**:
+- Normal-speed load: mounts correctly, 2 panels render, zero JS errors — unaffected by the fix.
+- Simulated a genuine failure by aborting the real network request to `vendor/babel.min.js` (via Playwright's real request interception, not a mock of React/Babel themselves): confirmed the new message precisely names "Babel" and "vendor/babel.min.js" after the 15-second grace window — **real diagnostic improvement, verified working**.
+- **Fresh mobile browser session** (390×844 viewport, new browser context): confirmed 2 panels render, zero JS errors, and **explicitly verified the Athlete Profile name field is visible and interactive** (filled and read back successfully) — directly satisfying the instruction not to merely declare success from passing tests.
+- Added 2 new permanent regression tests to `backend/tests/test_frontend_smoke.py`: `test_vendor_scripts_load_from_real_local_files_without_false_positive` (uses the real live server's real vendor files, waits past the old buggy 3-second window, confirms no false failure message) and `test_vendor_script_failure_reports_exact_failing_file` (aborts the real request to the real `babel.min.js` file via Playwright network interception — **no mocking of React/ReactDOM/Babel, no CDN fetch**, satisfying the explicit test requirement).
+- Full non-live regression suite: **55/55 passed** (53 prior + 2 new).
+
+**Fresh GitHub clone verification**: re-cloned the real, currently-pushed repository into a new isolated directory, ran the documented setup from a cold start, and confirmed the fixed `frontend/index.html` (with the polling watchdog) is what's actually on GitHub before and after this fix is pushed — full detail in the final report below.
+
+**Files changed**: `frontend/index.html` (watchdog fix), `backend/tests/test_frontend_smoke.py` (2 new tests), `AI_prompts.md` (this entry). No backend, schema, or AI model logic touched. No paid API calls made. `RESULTADO/` and the Lecture 6 research document remain correctly excluded from this commit.

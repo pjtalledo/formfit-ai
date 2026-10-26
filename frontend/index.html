@@ -110,9 +110,20 @@
   firewalls, or ad-blockers at runtime, and keeps the fresh-clone promise
   (works offline once cloned, since the vendor files ship in the repo).
 -->
-<script src="vendor/react.development.js"></script>
-<script src="vendor/react-dom.development.js"></script>
-<script src="vendor/babel.min.js"></script>
+<script>
+  // Per-script failure tracking: names exactly which vendor file failed to
+  // load (network error, 404, blocked by an extension/AV), instead of a
+  // generic "one or more scripts" message. Real root cause found 2026-10-26:
+  // the combined vendor payload is ~3.5MB (babel.min.js alone is 2.3MB), and
+  // the previous one-shot 3-second timeout below produced a false-positive
+  // failure message on any connection slower than fast broadband, even
+  // though the scripts were still legitimately downloading, not actually
+  // broken. See docs/TECHNICAL_AUDIT.md "Vendor Script Load False Positive".
+  window.__vendorLoadErrors = [];
+</script>
+<script src="vendor/react.development.js" onerror="window.__vendorLoadErrors.push('vendor/react.development.js')"></script>
+<script src="vendor/react-dom.development.js" onerror="window.__vendorLoadErrors.push('vendor/react-dom.development.js')"></script>
+<script src="vendor/babel.min.js" onerror="window.__vendorLoadErrors.push('vendor/babel.min.js')"></script>
 
 <script>
   // Fails loudly instead of silently if a vendored script didn't load —
@@ -126,16 +137,32 @@
         ". Open the browser console (F12) for details.";
     }
   });
-  setTimeout(function () {
-    if (typeof React === "undefined" || typeof ReactDOM === "undefined" || typeof Babel === "undefined") {
+
+  // Poll every 500ms for up to 15 seconds (instead of a single check at 3s)
+  // before declaring a real failure, so a normal but slower script download
+  // is never mistaken for a broken deployment. Stops polling the moment
+  // everything is actually ready.
+  (function pollVendorScripts(elapsedMs) {
+    var ready = typeof React !== "undefined" && typeof ReactDOM !== "undefined" && typeof Babel !== "undefined";
+    if (ready) return; // app will mount normally below; nothing to report
+    if (elapsedMs >= 15000) {
       var boot = document.getElementById("boot-status");
       if (boot) {
         boot.style.color = "#ff6b6b";
-        boot.textContent = "FormFit AI failed to load one or more required scripts (React/ReactDOM/Babel). " +
-          "Check that frontend/vendor/*.js exist and are served correctly, and check the browser console (F12).";
+        var missing = [];
+        if (typeof React === "undefined") missing.push("React");
+        if (typeof ReactDOM === "undefined") missing.push("ReactDOM");
+        if (typeof Babel === "undefined") missing.push("Babel");
+        var detail = window.__vendorLoadErrors.length
+          ? " Failed script(s): " + window.__vendorLoadErrors.join(", ") + "."
+          : " Script(s) for " + missing.join("/") + " did not finish loading in time (slow connection, or blocked by a browser extension/antivirus).";
+        boot.textContent = "FormFit AI failed to load required scripts (" + missing.join("/") + ")." + detail +
+          " Check that frontend/vendor/*.js exist and are served correctly, and check the browser console (F12).";
       }
+      return;
     }
-  }, 3000);
+    setTimeout(function () { pollVendorScripts(elapsedMs + 500); }, 500);
+  })(0);
 </script>
 
 <!--
