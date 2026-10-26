@@ -51,11 +51,21 @@ def test_env_falls_back_to_parent_when_root_missing(tmp_path):
 
 def test_real_env_resolution_matches_project_layout():
     """
-    This project's actual .env lives in the parent directory (MGT 409 AI/),
-    not inside Final Project/ itself. Confirms config.py's fallback logic
-    picks it up without hard-coding a path assumption in this test.
+    Confirms config.py's fallback logic (root, then parent) picks up a real
+    .env file without hard-coding a path assumption in this test — OR, just
+    as validly, that PORTKEY_API_KEY is already present as a real OS
+    environment variable with no .env file at all. Both are legitimate ways
+    to configure credentials (e.g. a TA might `set PORTKEY_API_KEY=...`
+    instead of creating a .env file) — found as a real false-failure in a
+    fresh-clone environment with no .env present but the key already
+    exported, see docs/FINAL_SUBMISSION_AUDIT.md.
     """
-    from app.config import ENV_SOURCE, REPO_ROOT, PARENT_DIR
+    from app.config import ENV_SOURCE, REPO_ROOT, PARENT_DIR, credentials_configured
 
-    assert ENV_SOURCE is not None, "No .env found in repo root or parent — credentials cannot load"
-    assert ENV_SOURCE in (str(REPO_ROOT / ".env"), str(PARENT_DIR / ".env"))
+    if ENV_SOURCE is not None:
+        assert ENV_SOURCE in (str(REPO_ROOT / ".env"), str(PARENT_DIR / ".env"))
+    else:
+        assert credentials_configured(), (
+            "No .env found in repo root or parent, and PORTKEY_API_KEY is not set in the "
+            "environment either — credentials cannot load by any valid method"
+        )
