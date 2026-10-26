@@ -304,7 +304,7 @@ function App() {
         <label>Workout text {wodSource === "image" && <span className="pill">from scanned image — review before submitting</span>}</label>
         <textarea
           value={rawText}
-          onChange={e => { setRawText(e.target.value); setWodSource("typed"); }}
+          onChange={e => { setRawText(e.target.value); setWodSource("typed"); setScanInfo(null); }}
           placeholder="e.g. For Time: 21-15-9 Thrusters, Pull-ups"
         />
         <button onClick={submitWod} disabled={!profileId || loading}>
@@ -330,6 +330,11 @@ function App() {
           <p>{result.recommendation.main_workout_guidance}</p>
           <h3>Complementary Exercises</h3>
           <ul>{result.recommendation.complementary_exercises.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          <p style={{fontSize: "0.75rem", color: "#999"}}>
+            These are suggested supplementary movements, not a prescribed workout. Sets, reps,
+            and loads should be selected according to your experience and recovery; consult a
+            qualified coach if unsure.
+          </p>
           <h3>Safety Notes</h3>
           <ul>{result.recommendation.safety_notes.map((w, i) => <li key={i}>{w}</li>)}</ul>
 
@@ -338,7 +343,11 @@ function App() {
           <p className="pill">prompt tokens: {result.usage.prompt_tokens}</p>
           <p className="pill">completion tokens: {result.usage.completion_tokens}</p>
           <p className="pill">cached tokens: {result.usage.cached_tokens}</p>
-          <p className="pill">est. cost: ${result.usage.estimated_cost_usd.toFixed(6)}</p>
+          <p className="pill">
+            {result.usage.estimated_cost_usd === 0
+              ? "Estimated cost: unavailable (model pricing unverified)"
+              : `est. cost: $${result.usage.estimated_cost_usd.toFixed(6)}`}
+          </p>
 
           <h3>Agent Trace</h3>
           {result.agent_trace.map((step, i) => (

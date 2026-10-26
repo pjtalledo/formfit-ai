@@ -144,6 +144,93 @@ def test_mobile_viewport_no_overflow_and_touch_targets(live_server, width, heigh
 
 
 @requires_playwright
+def test_cost_display_shows_unavailable_for_unverified_pricing(live_server, monkeypatch):
+    """
+    Regression test for the misleading '$0.000000' display found via a real
+    saved coaching-plan PDF (see AI_prompts.md). Pricing is a documented
+    UNVERIFIED placeholder (PRICING_PER_MILLION_TOKENS_UNVERIFIED = 0), so
+    estimated_cost_usd is always 0 today — the UI must say so explicitly
+    rather than showing a bare "$0.000000" that reads as "this was free."
+    """
+    from app import agent as agent_module
+
+    def _fake_call_model(system_prompt, user_prompt, json_mode=True):
+        if "WOD parser" in system_prompt:
+            content = '{"format": "AMRAP", "time_cap_minutes": 12, "exercises": [{"name": "Air Squats", "scheme": "AMRAP", "reps": "10", "load_note": null}], "notes": null}'
+        else:
+            content = (
+                '{"warm_up": ["easy rowing"], "scaling_options": ["reduce reps"], '
+                '"main_workout_guidance": "pace yourself", "complementary_exercises": ["Back squat"], '
+                '"safety_notes": ["stop on sharp pain"]}'
+            )
+        return {"content": content, "prompt_tokens": 100, "completion_tokens": 50, "cached_tokens": 0,
+                "estimated_cost_usd": 0.0, "latency_ms": 5, "model": "gpt-6-luna"}
+
+    monkeypatch.setattr(agent_module, "call_model", _fake_call_model)
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(live_server + "/")
+        page.wait_for_selector(".panel")
+
+        inputs = page.locator("main input")
+        inputs.nth(0).fill("Cost Display Test")
+        inputs.nth(1).fill("general fitness")
+        page.locator("main >> text=Save Profile").click()
+        page.wait_for_selector("text=Profile #")
+
+        page.locator("textarea").fill("AMRAP 12 minutes 10 Air Squats")
+        page.locator("text=Generate Coaching Plan").click()
+        page.wait_for_selector("text=Personalized Coaching Plan", timeout=10000)
+
+        assert page.locator("text=Estimated cost: unavailable (model pricing unverified)").count() > 0, \
+            "Expected the honest unverified-pricing message, not a bare dollar figure"
+        assert page.locator("text=$0.000000").count() == 0, "A misleading $0.000000 figure must never be shown"
+        browser.close()
+
+
+@requires_playwright
+def test_stale_scan_warning_clears_on_manual_edit(live_server, monkeypatch):
+    """
+    Regression test for a real bug found via a saved coaching-plan PDF: a
+    low-confidence scan warning stayed visible even after the user fully
+    retyped the WOD text, misattributing an old scan's uncertainty to
+    manually-reviewed content (see AI_prompts.md). A fresh scan must still
+    show its own warning immediately (not cleared prematurely) until the
+    user edits the text themselves.
+    """
+    from app import agent as agent_module
+
+    def _fake_call_model_with_image(system, user_text, image_base64, mime_type="image/png"):
+        return {"content": "[unclear: illegible]", "prompt_tokens": 50, "completion_tokens": 20, "cached_tokens": 0,
+                "estimated_cost_usd": 0.0, "latency_ms": 5, "model": "gpt-6-luna"}
+
+    monkeypatch.setattr(agent_module, "call_model_with_image", _fake_call_model_with_image)
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(live_server + "/")
+        page.wait_for_selector(".panel")
+
+        gallery_input = page.locator("input[type=file]").nth(1)
+        gallery_input.set_input_files(
+            {"name": "test.png", "mimeType": "image/png", "buffer": b"\x89PNG\r\n\x1a\nfake"}
+        )
+        page.wait_for_timeout(1000)
+
+        # Warning must still be visible right after scanning — never cleared prematurely.
+        assert page.locator("text=may be unclear").count() > 0, "Low-confidence warning should appear right after a low-confidence scan"
+
+        # Manually editing the textarea must clear the stale warning.
+        page.locator("textarea").fill("AMRAP 12 minutes 10 Air Squats 8 Push-ups 6 Burpees")
+        page.wait_for_timeout(200)
+        assert page.locator("text=may be unclear").count() == 0, "Stale scan warning must clear once the user manually edits the text"
+        browser.close()
+
+
+@requires_playwright
 def test_frontend_profile_creation_workflow(live_server):
     with sync_playwright() as p:
         browser = p.chromium.launch()

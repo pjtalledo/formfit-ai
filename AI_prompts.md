@@ -578,3 +578,34 @@ The user observed that after uploading an image, FormFit AI showed "[unclear: il
 - **History persistence**: **PASS** — confirmed via a real `GET /api/athletes/4/history` call returning the genuine, previously-generated coaching plan with real token usage.
 - **Final regression results**: **51/51 non-live tests passed** after the fix.
 - **Remaining submission blockers**: none identified from this investigation.
+
+## Real Coaching Output Review & Three Approved Fixes (2026-10-26)
+
+**Prompt 24: Review of Real Coaching Output** (findings-only) **+ Prompt 25: Approved Fixes**
+
+The user saved a real application output as `RESULTADO/FormFit AI.pdf` (a genuine coaching-plan PDF for profile "PIERO TALLEDO," intermediate, goals: build muscle/strength/endurance/fat loss) and asked for a review against four concerns: unqualified complementary exercises, a `$0.000000` cost display, a possibly-stale low-confidence scanner warning, and whether coaching genuinely reflects the profile — findings-only first, no code changes.
+
+**Investigation (via direct code inspection, not assumption)**:
+1. `backend/app/schemas.py`: `complementary_exercises: list[str]` — confirmed the schema has no sets/reps/intensity/rationale fields at all; the model structurally cannot provide dosage detail.
+2. `backend/app/portkey_client.py`: `PRICING_PER_MILLION_TOKENS_UNVERIFIED = {"input": 0.0, "output": 0.0}` — confirmed `$0.000000` is a documented placeholder artifact (`0 × tokens = 0`), not a real free-inference claim, but the **running UI showed the bare number with no disclaimer**, which is misleading on its own.
+3. `frontend/index.html`: the textarea's `onChange` handler never cleared `scanInfo` — confirmed the low-confidence warning genuinely goes stale and stays visible after the user fully edits/retypes the WOD text, exactly matching the real PDF.
+4. Coaching content was judged largely well-matched to the real profile (equipment, goals), with a minor, lower-severity generic-pacing observation, not a defect.
+
+Reported all four findings with severity, proposed corrections, and regression risk; recommended Findings 2 and 3 as low-risk/high-value pre-submission fixes, Finding 1's full schema fix as out-of-scope for today (deadline risk), with a lower-risk caveat-text alternative offered instead.
+
+**User approved exactly 3 changes, explicitly preserving the existing schema/prompts**:
+1. **Tokenomics display**: `frontend/index.html` — when `estimated_cost_usd === 0`, show "Estimated cost: unavailable (model pricing unverified)" instead of "$0.000000". Token counts (prompt/completion/cached) are unchanged and still always shown. Searched for other cost-display locations (`grep "est\. cost\|estimated_cost"`) — confirmed this was the only one.
+2. **Stale scanner warning**: `frontend/index.html` — the textarea's `onChange` now also calls `setScanInfo(null)`, clearing the warning only on manual edit. Verified `scanImage()` already correctly clears and replaces `scanInfo` on every new scan (pre-existing code, confirmed by inspection, not changed) — a fresh scan's warning still appears immediately and is never cleared prematurely.
+3. **Complementary exercises caveat**: `frontend/index.html` — added the exact user-specified caveat text beneath the Complementary Exercises list. **No schema, prompt, or backend change** — purely a frontend display addition.
+
+**Validation performed**:
+- Added 2 new targeted regression tests to `backend/tests/test_frontend_smoke.py`: `test_cost_display_shows_unavailable_for_unverified_pricing` (mocked `call_model`, asserts the honest message appears and `$0.000000` never does) and `test_stale_scan_warning_clears_on_manual_edit` (mocked `call_model_with_image`, asserts the warning appears right after a low-confidence scan and clears only after a manual edit) — both use real Playwright browser automation with mocked model responses, **zero paid calls**.
+- Full non-live regression suite: **53/53 passed** (51 prior + 2 new).
+- **Real browser verification against the live server, limited strictly to non-paid-call paths** per the "no additional paid calls" instruction: verified profile creation/persistence end-to-end with zero model calls. An attempt to additionally click "Generate Coaching Plan" against the live server (which would have triggered a real paid call) was **correctly blocked by the environment's own safety classifier** as a real-world/paid action — this was not worked around; the mocked-model Playwright tests above are the browser evidence for the scan/coaching/cost-display paths instead.
+- Checked `report.html`/`slides.html` for outdated or contradictory cost claims: **none found** — neither file asserts a specific dollar figure or claims the app says "unavailable"; the one embedded screenshot showing the old "$0.000000" pill is a historical real-capture correctly surrounded by the Tokenomics section's existing "no verified price exists" disclaimer, so no update was judged necessary (re-capturing it would require an unauthorized paid call for a purely cosmetic, non-contradictory difference).
+- Confirmed `canvas_submission/report.html` and `canvas_submission/slides.html` remain byte-identical to their sources via `diff` — no re-sync needed since neither source file was touched this round.
+- No backend schema, database structure, or recommendation prompt was modified — confirmed via `git diff` scope (frontend + tests only).
+
+**Files changed**: `frontend/index.html` (3 fixes), `backend/tests/test_frontend_smoke.py` (2 new tests), `AI_prompts.md` (this entry).
+
+**Reconciled real API calls this phase**: **0** — all validation used mocked model responses or non-model-calling paths, per the explicit instruction.
