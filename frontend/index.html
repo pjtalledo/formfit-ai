@@ -86,10 +86,99 @@
     font-size: 0.75rem;
     margin-right: 6px;
   }
-  .error { color: #ff6b6b; white-space: pre-wrap; }
+  .error { color: #ff6b6b; white-space: pre-wrap; overflow-wrap: anywhere; }
   ul { padding-left: 20px; }
-  .trace-step { font-size: 0.8rem; border-left: 2px solid var(--pink); padding-left: 10px; margin-bottom: 6px; }
-  .trace-step.fail { border-color: #ff6b6b; color: #ff6b6b; }
+
+  /* Usage (observability) — compact, balanced grid instead of a loose row of pills */
+  .usage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+    margin: 10px 0 18px;
+  }
+  .usage-item {
+    background: #17171b;
+    border: 1px solid #2a2a30;
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .usage-item .usage-label {
+    display: block;
+    font-size: 0.68rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+  }
+  .usage-item .usage-value {
+    display: block;
+    font-size: 0.9rem;
+    color: var(--text);
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .usage-item.usage-cost .usage-value { color: var(--pink); font-weight: 600; font-size: 0.8rem; }
+
+  /* Agent Trace — one card per tool call */
+  .trace-card {
+    background: #17171b;
+    border: 1px solid #2a2a30;
+    border-left: 3px solid var(--pink);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .trace-card.fail { border-left-color: #ff6b6b; }
+  .trace-card-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: inherit;
+    width: 100%;
+    text-align: left;
+    padding: 0;
+    font-family: inherit;
+  }
+  .trace-tool-name { font-weight: 600; font-size: 0.85rem; color: var(--text); }
+  .trace-duration { font-size: 0.72rem; color: #999; }
+  .trace-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #1a3a1a;
+    color: #7CFC9A;
+  }
+  .trace-badge.fail { background: #3a1a1a; color: #ff8080; }
+  .trace-toggle { margin-left: auto; font-size: 0.72rem; color: var(--pink); white-space: nowrap; }
+  .trace-details { margin-top: 10px; border-top: 1px solid #2a2a30; padding-top: 8px; }
+  .trace-details h4 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #999;
+    margin: 8px 0 4px;
+  }
+  .trace-details pre {
+    background: #0e0e11;
+    border: 1px solid #2a2a30;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+    overflow-x: hidden;
+    margin: 0;
+  }
 </style>
 </head>
 <body>
@@ -200,6 +289,27 @@ function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [expandedSteps, setExpandedSteps] = useState({});
+
+  function toggleStep(i) {
+    setExpandedSteps(prev => ({ ...prev, [i]: !prev[i] }));
+  }
+
+  // Pretty-prints a trace input/output string if it parses as JSON; falls
+  // back to the raw string otherwise. Never fabricates or trims real data —
+  // only reformats whitespace for readability.
+  function prettyPrint(text) {
+    if (typeof text !== "string") return String(text);
+    const trimmed = text.trim();
+    if ((trimmed.startsWith("{") || trimmed.startsWith("[")) ) {
+      try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2);
+      } catch (e) {
+        return text;
+      }
+    }
+    return text;
+  }
 
   async function createProfile() {
     setError(null);
@@ -366,22 +476,50 @@ function App() {
           <ul>{result.recommendation.safety_notes.map((w, i) => <li key={i}>{w}</li>)}</ul>
 
           <h3>Usage (observability)</h3>
-          <p className="pill">model: {result.usage.model}</p>
-          <p className="pill">prompt tokens: {result.usage.prompt_tokens}</p>
-          <p className="pill">completion tokens: {result.usage.completion_tokens}</p>
-          <p className="pill">cached tokens: {result.usage.cached_tokens}</p>
-          <p className="pill">
-            {result.usage.estimated_cost_usd === 0
-              ? "Estimated cost: unavailable (model pricing unverified)"
-              : `est. cost: $${result.usage.estimated_cost_usd.toFixed(6)}`}
-          </p>
+          <div className="usage-grid">
+            <div className="usage-item">
+              <span className="usage-label">Model</span>
+              <span className="usage-value">{result.usage.model}</span>
+            </div>
+            <div className="usage-item">
+              <span className="usage-label">Prompt tokens</span>
+              <span className="usage-value">{result.usage.prompt_tokens}</span>
+            </div>
+            <div className="usage-item">
+              <span className="usage-label">Completion tokens</span>
+              <span className="usage-value">{result.usage.completion_tokens}</span>
+            </div>
+            <div className="usage-item">
+              <span className="usage-label">Cached tokens</span>
+              <span className="usage-value">{result.usage.cached_tokens}</span>
+            </div>
+            <div className="usage-item usage-cost">
+              <span className="usage-label">Estimated cost</span>
+              <span className="usage-value">
+                {result.usage.estimated_cost_usd === 0
+                  ? "Unavailable (pricing unverified)"
+                  : `$${result.usage.estimated_cost_usd.toFixed(6)}`}
+              </span>
+            </div>
+          </div>
 
           <h3>Agent Trace</h3>
           {result.agent_trace.map((step, i) => (
-            <div key={i} className={"trace-step" + (step.ok ? "" : " fail")}>
-              <strong>{step.tool}</strong> ({step.duration_ms}ms) — {step.ok ? "OK" : "FAILED"}<br/>
-              in: {step.input_summary}<br/>
-              out: {step.output_summary}
+            <div key={i} className={"trace-card" + (step.ok ? "" : " fail")}>
+              <button className="trace-card-header" onClick={() => toggleStep(i)} aria-expanded={!!expandedSteps[i]}>
+                <span className="trace-tool-name">{step.tool}</span>
+                <span className="trace-duration">{step.duration_ms}ms</span>
+                <span className={"trace-badge" + (step.ok ? "" : " fail")}>{step.ok ? "OK" : "FAILED"}</span>
+                <span className="trace-toggle">{expandedSteps[i] ? "Hide details ▲" : "View details ▼"}</span>
+              </button>
+              {expandedSteps[i] && (
+                <div className="trace-details">
+                  <h4>Input</h4>
+                  <pre>{prettyPrint(step.input_summary)}</pre>
+                  <h4>Output</h4>
+                  <pre>{prettyPrint(step.output_summary)}</pre>
+                </div>
+              )}
             </div>
           ))}
         </Panel>

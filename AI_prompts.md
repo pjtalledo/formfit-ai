@@ -635,3 +635,26 @@ The user reported seeing the actual error "FormFit AI failed to load one or more
 **Fresh GitHub clone verification**: re-cloned the real, currently-pushed repository into a new isolated directory, ran the documented setup from a cold start, and confirmed the fixed `frontend/index.html` (with the polling watchdog) is what's actually on GitHub before and after this fix is pushed — full detail in the final report below.
 
 **Files changed**: `frontend/index.html` (watchdog fix), `backend/tests/test_frontend_smoke.py` (2 new tests), `AI_prompts.md` (this entry). No backend, schema, or AI model logic touched. No paid API calls made. `RESULTADO/` and the Lecture 6 research document remain correctly excluded from this commit.
+
+## Agent Trace & Tokenomics UI Redesign (2026-10-26)
+
+**Prompt 27: Final UI Improvement — Agent Trace and Tokenomics**
+
+The user asked for a visual redesign of the "Usage (observability)" and "Agent Trace" sections: per-tool collapsible cards (tool name/duration/status visible by default, input/output behind "View details"), properly indented/wrapped JSON with no horizontal overflow, a compact balanced Usage layout, preserved dark/pink theme, responsive at 375/390/412/desktop, and — critically — no change to backend logic, agent execution, prompts, schemas, or API calls, with the exact real trace data (tool order, timings, inputs, outputs, token counts) fully preserved and still accessible, not summarized away.
+
+**Implementation** (`frontend/index.html` only — no backend/schema/prompt changes):
+- Added `.usage-grid`/`.usage-item` CSS: a compact, responsive grid of labeled stat cards (Model, Prompt tokens, Completion tokens, Cached tokens, Estimated cost) replacing the loose row of pills.
+- Added `.trace-card`/`.trace-card-header`/`.trace-badge`/`.trace-details` CSS: each tool call now renders as a bordered card with a clickable header (tool name, duration, OK/FAILED badge, "View details ▼"/"Hide details ▲" toggle) and a collapsible details section.
+- Added `expandedSteps` state (`useState({})`) and a `toggleStep(i)` handler — purely a frontend display-state change, no data transformation.
+- Added a `prettyPrint()` helper that `JSON.parse`s + `JSON.stringify(..., null, 2)`s a trace input/output string if it looks like JSON, falling back to the raw string unchanged otherwise (handles the backend's intentional 200-char truncation of `output_summary` gracefully — a truncated JSON fragment simply fails to parse and displays as-is, never fabricated or padded to "fix" it).
+- All `<pre>` blocks use `white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; overflow-x: hidden;` to guarantee long content wraps instead of causing horizontal scroll, at any viewport width.
+
+**Validation performed (real browser, mocked model responses, zero paid calls)**:
+- Added 2 new regression tests to `backend/tests/test_frontend_smoke.py`: `test_agent_trace_cards_collapsed_by_default_and_expand_on_click` (verifies exactly 4 cards render, collapsed by default, expand on click, and real input/output content — not a summary — appears once expanded) and `test_agent_trace_and_usage_no_horizontal_overflow_at_mobile_widths` (expands every trace card at 375/390/412px and asserts `document.body.scrollWidth` never exceeds the viewport width).
+- **Updated one existing test** (`test_cost_display_shows_unavailable_for_unverified_pricing`, from the prior phase) whose exact-text assertion no longer matched the new label/value DOM structure — changed to check `.usage-cost .usage-value`'s text content instead, preserving the same underlying behavior check (no `$0.000000`, honest "unavailable (pricing unverified)" message).
+- Captured a real screenshot (`docs/evidence/agent_trace_redesign.png`) of the live, mocked-response UI with all 4 trace cards expanded, confirming visually: indented/readable JSON, no overflow, dark/pink theme preserved, compact usage grid.
+- Full non-live regression suite: **57/57 passed** (55 prior + 2 new).
+
+**Checked `report.html`/`slides.html` for outdated screenshots, per instruction**: the embedded `docs/evidence/02_coaching_plan.png` screenshot (Figure 2 in `report.html`, also used in `slides.html`) shows the **pre-redesign** dense Agent Trace styling — now visually inconsistent with the live app's current appearance. **Not updated**, because regenerating it would require a real coaching-plan generation (2 paid API calls), which this task explicitly disallowed ("Do not upload anything to Canvas... Do not make additional paid AI calls" was the standing instruction, and this task repeated "test... with mocked coaching responses; do not make paid model calls"). This is disclosed as a known, cosmetic-only staleness (the screenshot is still a genuine historical capture, correctly labeled as such, making no claim about matching the current build) — not silently ignored. `canvas_submission/report.html` and `slides.html` remain byte-identical to their (unchanged) sources, confirmed via `diff`; no re-sync was needed.
+
+**Files changed**: `frontend/index.html`, `backend/tests/test_frontend_smoke.py`, `docs/evidence/agent_trace_redesign.png` (new), `AI_prompts.md`. No backend, schema, prompt, or API logic touched — confirmed by the diff scope. No paid API calls made.

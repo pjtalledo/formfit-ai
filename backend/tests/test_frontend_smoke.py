@@ -232,8 +232,9 @@ def test_cost_display_shows_unavailable_for_unverified_pricing(live_server, monk
         page.locator("text=Generate Coaching Plan").click()
         page.wait_for_selector("text=Personalized Coaching Plan", timeout=10000)
 
-        assert page.locator("text=Estimated cost: unavailable (model pricing unverified)").count() > 0, \
-            "Expected the honest unverified-pricing message, not a bare dollar figure"
+        cost_value = page.locator(".usage-cost .usage-value").inner_text()
+        assert "unavailable" in cost_value.lower() and "pricing unverified" in cost_value.lower(), \
+            f"Expected the honest unverified-pricing message, got: {cost_value!r}"
         assert page.locator("text=$0.000000").count() == 0, "A misleading $0.000000 figure must never be shown"
         browser.close()
 
@@ -307,3 +308,102 @@ def test_frontend_wod_textarea_and_button_render(live_server):
         button = page.locator("text=Generate Coaching Plan")
         assert button.count() == 1
         assert button.is_disabled()  # disabled until a profile exists, per the UI logic
+
+
+def _mock_agent_for_trace_ui(monkeypatch):
+    """Shared mock producing a real-shaped coaching response, no paid calls."""
+    from app import agent as agent_module
+
+    def _fake_call_model(system_prompt, user_prompt, json_mode=True):
+        if "WOD parser" in system_prompt:
+            content = '{"format": "AMRAP", "time_cap_minutes": 12, "exercises": [{"name": "Air Squats", "scheme": "AMRAP", "reps": "10", "load_note": null}], "notes": null}'
+        else:
+            content = (
+                '{"warm_up": ["easy rowing"], "scaling_options": ["reduce reps"], '
+                '"main_workout_guidance": "pace yourself", "complementary_exercises": ["Back squat"], '
+                '"safety_notes": ["stop on sharp pain"]}'
+            )
+        return {"content": content, "prompt_tokens": 393, "completion_tokens": 982, "cached_tokens": 0,
+                "estimated_cost_usd": 0.0, "latency_ms": 5, "model": "gpt-6-luna"}
+
+    monkeypatch.setattr(agent_module, "call_model", _fake_call_model)
+
+
+@requires_playwright
+def test_agent_trace_cards_collapsed_by_default_and_expand_on_click(live_server, monkeypatch):
+    """
+    Regression test for the Agent Trace redesign: each tool call renders as
+    a distinct card showing tool name/duration/status by default, with
+    input/output hidden until "View details" is clicked — and the real
+    trace data (tool order, timings, content) must still be present once
+    expanded, never summarized away.
+    """
+    _mock_agent_for_trace_ui(monkeypatch)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page()
+        page.goto(live_server + "/")
+        page.wait_for_selector(".panel")
+
+        inputs = page.locator("main input")
+        inputs.nth(0).fill("Trace UI Test")
+        inputs.nth(1).fill("general fitness")
+        page.locator("main >> text=Save Profile").click()
+        page.wait_for_selector("text=Profile #")
+
+        page.locator("textarea").fill("AMRAP 12 minutes 10 Air Squats")
+        page.locator("text=Generate Coaching Plan").click()
+        page.wait_for_selector("text=Personalized Coaching Plan", timeout=10000)
+
+        cards = page.locator(".trace-card")
+        assert cards.count() == 4, "Expected 4 tool-call cards (parse, validate, generate, validate)"
+
+        # Collapsed by default: no input/output text visible yet.
+        assert page.locator(".trace-details").count() == 0, "Details should be collapsed by default"
+        assert page.locator("text=View details").count() == 4
+
+        # Expand the first card and confirm real data appears.
+        cards.nth(0).locator(".trace-card-header").click()
+        page.wait_for_timeout(100)
+        assert page.locator(".trace-details").count() == 1
+        assert page.locator("text=Hide details").count() == 1
+        details_text = page.locator(".trace-details").first.inner_text()
+        assert "AMRAP" in details_text or "Air Squats" in details_text, "Real input/output content must be visible when expanded"
+        browser.close()
+
+
+@requires_playwright
+def test_agent_trace_and_usage_no_horizontal_overflow_at_mobile_widths(live_server, monkeypatch):
+    """
+    Regression test: long JSON output in an expanded trace card must wrap,
+    never cause horizontal scrolling, at every required mobile viewport.
+    """
+    _mock_agent_for_trace_ui(monkeypatch)
+    for width, height in [(375, 812), (390, 844), (412, 915)]:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.goto(live_server + "/")
+            page.wait_for_selector(".panel")
+
+            inputs = page.locator("main input")
+            inputs.nth(0).fill("Overflow Test")
+            inputs.nth(1).fill("general fitness")
+            page.locator("main >> text=Save Profile").click()
+            page.wait_for_selector("text=Profile #")
+
+            page.locator("textarea").fill("AMRAP 12 minutes 10 Air Squats")
+            page.locator("text=Generate Coaching Plan").click()
+            page.wait_for_selector("text=Personalized Coaching Plan", timeout=10000)
+
+            # Expand every trace card to exercise the longest real JSON output.
+            for i in range(page.locator(".trace-card").count()):
+                page.locator(".trace-card-header").nth(i).click()
+            page.wait_for_timeout(200)
+
+            body_width = page.evaluate("document.body.scrollWidth")
+            assert body_width <= width, f"{width}x{height}: horizontal overflow (body width {body_width}) with all trace cards expanded"
+
+            usage_grid = page.locator(".usage-grid")
+            assert usage_grid.count() == 1
+            browser.close()
