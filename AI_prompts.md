@@ -532,3 +532,49 @@ The professor clarified Canvas requires file upload (not URL): exactly `report.h
 - **Remaining blockers**: none for the HTML deliverables; the optional demo video remains the user's own task if desired.
 
 No paid model calls were made and no new product features were added this phase — only the two HTML deliverables and this documentation were touched.
+
+## Lecture 6 Video Architecture Reassessment (2026-10-26)
+
+**Prompt 22: Video Analysis Feasibility Reassessment**
+
+The user found the professor's Lecture 6 sports-video judging exercise (PydanticAI, `sample_frames`/`describe_video`/structured-verdict tools, `imageio`/`imageio-ffmpeg`) and asked whether this architecture could improve FormFit AI's video feasibility work — explicitly as an isolated investigation, no production/report/slides/Canvas/GitHub changes, no paid calls without approval.
+
+**Findings** (full detail in `experiments/video_feasibility/LECTURE6_REASSESSMENT.md`, not committed/pushed per instruction):
+- The Lecture 6 multi-tool, Pydantic-verdict, trace-captured architecture is directly compatible with our existing `backend/app/agent.py` pattern.
+- **Confirmed the prior 4-frame approach likely omitted real movement phases** (percentage-based sampling doesn't align with fast phase transitions like the catch).
+- **Installed `imageio`/`imageio-ffmpeg` in isolation (not added to `requirements.txt`)** and confirmed real decode of the actual `.MOV` files — but found a **new, real bug**: this library doesn't apply iPhone rotation metadata, returning sideways frames (a previously-unknown integration risk).
+- Designed an improved 16-frame, timestamped, Pydantic-validated prototype (not implemented), reusing `gpt-6-luna`/Portkey unchanged.
+- Estimated (not measured) ~4-5x the token/latency cost of the prior 4-frame experiment, scaled from real prior data.
+- **No paid API calls were made for this reassessment.**
+
+**Recommendation: NO-GO for implementation today** — the new orientation bug alone rules out a same-day ship, and the reassessment reinforces rather than overturns the original Option C decision. User **acknowledged and approved the NO-GO**, instructed to keep the reassessment as an isolated, unpushed research document, and to prioritize the actual application instead.
+
+## Scanner UX Investigation: "[unclear: illegible]" + Disabled Button (2026-10-26)
+
+**Prompt 23: Investigate Observed Scanner Issue**
+
+The user observed that after uploading an image, FormFit AI showed "[unclear: illegible]" and the "Generate Coaching Plan" button was disabled, and asked whether this was an unreadable input image or a genuine defect — with a strict budget of **at most 2 additional real Portkey calls**, full end-to-end and typed-WOD testing, history-persistence verification, fixing only verified defects (no fabrication, no suppressed warnings), full regression after any change, and GitHub sync if a fix was made.
+
+**Investigation**:
+- Inspected the frontend: the "Generate Coaching Plan" button's `disabled` condition is `!profileId || loading` — **entirely independent of the scan result**. The low-confidence/illegible flag only shows a warning banner; it never touches the button's disabled state.
+- **Used the full approved 2-call budget** to distinguish genuine model uncertainty from a technical failure: Call 1 (`sample_whiteboard.png`, a known-clear fixture) → transcribed perfectly, `low_confidence: false`. Call 2 (`ambiguous_whiteboard.png`, a deliberately blurred fixture) → correctly flagged `low_confidence: true`, `"[unclear: illegible]"`. **This proves the scanner pipeline correctly distinguishes real image quality — "illegible" responses are genuine, evidence-based model uncertainty, not a technical failure of image transmission or encoding.**
+- **Reproduced the user's exact scenario via real browser automation**: uploaded the blurry image *without* saving a profile first — confirmed the button was disabled **solely because no profile existed**, with the illegible scan result showing simultaneously but causally unrelated. Separately confirmed the button enables correctly immediately after saving a profile, before any scan.
+- **Root cause: a real but minor UX clarity defect** — the disabled button gave no on-screen explanation, making two independent, correctly-functioning behaviors (a genuinely blurry photo correctly flagged as illegible, and a button correctly requiring a saved profile) look like one connected failure. **Not a technical/backend defect; not a fabrication or hardcoded-response issue.**
+- Verified existing real, persisted history (profile #4, "Jordan R.", from earlier this session) to confirm the full image-to-coaching-to-history workflow genuinely works and persists, **without making additional paid calls** beyond the approved 2 — reusing already-existing real evidence rather than re-spending budget on a workflow already proven working across Phases 1-3.
+
+**Fix applied**: added a small, conditional helper message next to the Generate button — visible only when no profile is saved — explicitly stating "this button stays disabled until you do, regardless of the scan result." This directly addresses the confirmed root cause (missing on-screen explanation) without touching any scanning, parsing, or coaching logic.
+
+**Verification after the fix**: re-reproduced the exact scenario via real browser automation — the new helper text now appears correctly. Full non-live regression suite: **51/51 passed**, confirming no regression.
+
+**Reconciled real API call count**: 22 (end of prior phase) + 2 (this investigation's clear/blurry comparison) = **24 real API calls total**, all genuine, all disclosed.
+
+**GitHub sync**: committed and pushed the frontend fix (see commit details in the final report below). `report.html`, `slides.html`, and `canvas_submission/` make no claims about this specific button-disabled behavior, so no content changes were needed there — verified by inspection, not assumed.
+
+### Mandatory Report
+- **Root cause**: a UX clarity gap (no visible reason shown for the disabled button), not a technical defect. The "illegible" scan result and the disabled button are independent, both functioning correctly.
+- **Actual real-model results**: clear image → perfect transcription, `low_confidence: false`; deliberately blurry image → correctly flagged `low_confidence: true`, honest "[unclear: illegible]" output, zero fabrication.
+- **Image scanner**: **PASS** — correctly distinguishes real image quality; pipeline integrity confirmed with two real calls.
+- **Typed WOD coaching**: **PASS** — verified via existing real, persisted evidence (profile #4's saved coaching plan) and the full non-live regression suite; no new paid call was needed or made for this specific check, per the 2-call budget.
+- **History persistence**: **PASS** — confirmed via a real `GET /api/athletes/4/history` call returning the genuine, previously-generated coaching plan with real token usage.
+- **Final regression results**: **51/51 non-live tests passed** after the fix.
+- **Remaining submission blockers**: none identified from this investigation.

@@ -310,6 +310,12 @@ function App() {
         <button onClick={submitWod} disabled={!profileId || loading}>
           {loading ? "Processing..." : "Generate Coaching Plan"}
         </button>
+        {!profileId && (
+          <p style={{fontSize: "0.75rem", color: "#ff6b6b", marginTop: "6px"}}>
+            Save your athlete profile above first — this button stays disabled until you do,
+            regardless of the scan result.
+          </p>
+        )}
       </Panel>
 
       {error && <Panel title="Error"><div className="error">{error}</div></Panel>}
