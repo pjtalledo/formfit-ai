@@ -495,3 +495,40 @@ The user acknowledged the file-picker investigation as PASS (expected behavior, 
 - **Test results**: 51/51 non-live tests passed, run directly from the real fresh clone.
 - **Submission readiness**: GitHub publication **complete** and independently verified reproducible; **Canvas submission not performed**, per explicit instruction.
 - No further video investigation or paid model calls occurred in this phase.
+
+## Canvas Submission Finalization (2026-10-26)
+
+**Prompt 21: Final Canvas Submission Update**
+
+The professor clarified Canvas requires file upload (not URL): exactly `report.html` and `slides.html` (optional `demo.mp4`), with the GitHub URL visible and clickable in both HTML files. The user asked to verify/finalize both files, confirm standalone (non-server) rendering, create `canvas_submission/` with only the two approved files, prepare a video-recording guide, sync any source changes to GitHub, and report final status.
+
+**Task 1 — GitHub URL + standalone verification**:
+- Added a real, clickable `<a href="https://github.com/pjtalledo/formfit-ai">` link to `report.html`'s Title+Links table (replacing the stale "PENDING" placeholder) and to **two** slides in `slides.html` (title slide and Limits & Next Steps) for resilience.
+- Updated `report.html`'s stale "Phase 2 complete, Phase 3 documentation in progress" status line to reflect the actual final state, and corrected the real API call count reference from 19 to the accurate **22**.
+- Tested both files as genuine standalone `file://` documents (not via the dev server): zero JS errors, GitHub link present and clickable, zero broken images — **per instruction, this was not assumed from prior HTTP-based testing**.
+
+**Critical real defect found and fixed**: both `report.html` and `slides.html` embedded two screenshots via relative paths (`docs/evidence/01_profile_saved.png`, `02_coaching_plan.png`). This works when the files sit next to their `docs/` folder (as in the main project directory and the GitHub repo), but **breaks completely** once isolated into a flat `canvas_submission/` folder containing only the two HTML files, as the mandatory deliverable structure requires — verified broken via a real Playwright check (`naturalWidth === 0` on both images) before fixing, not assumed. **Fixed by embedding both images as base64 data URIs directly in the HTML source**, making both files genuinely self-contained with zero external file dependencies (the only remaining external dependency is `slides.html`'s reveal.js library, loaded from a CDN — this requires internet access, not a local dev server, and was confirmed working via the same standalone test). Re-verified in a fully isolated copy: zero broken images, zero errors.
+
+**Re-verified after the fix**:
+- `report.html`: 14 printed pages (pypdf-confirmed, from the actual Canvas-ready file).
+- `slides.html`: 9 slides, `Reveal.isReady()` true, zero errors.
+- Full non-live regression suite: **51/51 passed**, confirming the production app itself was unaffected (only `report.html`/`slides.html` were touched).
+
+**Task 2 — Canvas submission package**: created `canvas_submission/` containing exactly `report.html` and `slides.html` (the final, self-contained, GitHub-linked versions) — verified via `ls` that no other file exists in that directory.
+
+**Task 3 — Demo video**: no screen-recording tool is available in this environment, so **no `demo.mp4` was created** — fabricating one was not attempted. Instead, wrote `docs/DEMO_VIDEO_RECORDING_GUIDE.md` with a precise, timed 2-3 minute script covering exactly the required beats (profile → upload → confirm/edit → generate → review warm-up/scaling/safety/usage/trace → history), explicitly instructing not to claim video technique analysis is operational and not to substitute the raw iPhone videos for an actual screen recording of the app.
+
+**Task 4 — GitHub synchronization**: committed and pushed the updated `report.html`, `slides.html`, and this `AI_prompts.md` entry.
+
+### Mandatory Final Verification Report
+- **GitHub URL present in report.html**: **PASS** (clickable link in Title+Links table).
+- **GitHub URL present in slides.html**: **PASS** (clickable links on 2 slides).
+- **Standalone HTML rendering (isolated, no `docs/` folder present)**: **PASS** for both files — verified only after fixing the relative-image-path defect found during this exact check.
+- **Report printed page count**: **14** (within 10-15).
+- **Slide count**: **9** (within ≤10).
+- **Canvas submission directory contents**: exactly `report.html` and `slides.html` — no other files.
+- **Optional video status**: **not created** (no recording tool available); a precise recording guide was provided instead.
+- **Final GitHub commit SHA**: recorded immediately after this commit (see below).
+- **Remaining blockers**: none for the HTML deliverables; the optional demo video remains the user's own task if desired.
+
+No paid model calls were made and no new product features were added this phase — only the two HTML deliverables and this documentation were touched.
